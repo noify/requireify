@@ -1,0 +1,29 @@
+{
+  "name": "requireify",
+  "version": "0.0.1",
+  "description": "requirejs",
+  "main": "build/requireify.js",
+  "scripts": {
+    "start": "npm run beautify && npm run min",
+    "beautify": "uglifyjs src/requireify.js -b -o build/requireify.js",
+    "min": "uglifyjs src/requireify.js -m -o build/requireify.min.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/noify/requireify.git"
+  },
+  "keywords": [
+    "requirejs",
+    "require",
+    "js"
+  ],
+  "author": "noify",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/noify/requireify/issues"
+  },
+  "homepage": "https://github.com/noify/requireify#readme",
+  "devDependencies": {
+    "uglify-js": "^3.1.8"
+  }
+}

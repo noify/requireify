@@ -1,57 +1,42 @@
-var requirejs, require, define;
-
 (function(global) {
-    var lastNameDfd = null;
-    var _ = {
-        type: function(sender) {
-            return sender === null ? sender + "" : Object.prototype.toString.call(sender).toLowerCase().match(/\s([^\]]+)/)[1];
-        },
-        each: function(sender, callback) {
-            var i = 0, len = sender.length, arrayLike = this.arrayLike(sender), result;
-            if (arrayLike) {
-                for (;i < len; i++) {
-                    result = callback.call(sender[i], i, sender[i]);
-                    if (result === false) break;
-                }
-            } else {
-                for (i in sender) {
-                    result = callback.call(sender[i], i, sender[i]);
-                    if (result === false) break;
-                }
-            }
-        },
-        arrayLike: function(sender) {
-            return this.type(sender.length) == "number" && this.type(sender.splice) == "function";
-        },
-        makeArray: function(sender) {
-            try {
-                return [].slice.call(sender);
-            } catch (ex) {
-                var arr = [], i = 0, len = sender.length;
-                for (;i < len; i++) {
-                    arr.push(sender[i]);
-                }
-                return arr;
-            }
-        },
-        normalizePath: function(path) {
-            path = path.replace(/\.js$/, "");
-            path = path.replace(/\/+/g, "/");
-            path = path.replace(/\/\.\//g, "/");
-            path = path.replace(/^\.?\//, "");
-            while (~path.indexOf("../")) {
-                path = path.replace(/[^\.\/]+\/\.\.\//g, "");
-            }
-            return path;
-        },
-        resolvePath: function(from, to) {
-            from = from.replace(/[^\/]+$/, "");
-            if (to) {
-                from += "/" + to;
-            }
-            return this.normalizePath(from);
+    var core = {
+        ver: "0.0.1",
+        defineName: "define",
+        requireName: "require",
+        coreName: "requirejs",
+        rootUrl: "",
+        dict: {}
+    }, lastNameDfd = null;
+    function each(ary, cb) {
+        var i;
+        for (i = 0; i < ary.length; i += 1) {
+            if (cb.call(ary[i], i, ary[i]) === false) break;
         }
-    };
+    }
+    function makeArray(sender) {
+        try {
+            return Array.prototype.slice.call(sender);
+        } catch (ex) {
+            var arr = [], i = 0, len = sender.length;
+            for (;i < len; i++) {
+                arr.push(sender[i]);
+            }
+            return arr;
+        }
+    }
+    function resolvePath(from, to) {
+        path = from.replace(/[^\/]+$/, "");
+        if (to) {
+            path += "/" + to;
+        } else {
+            path = from;
+        }
+        path = path.replace(/\.js$/, "").replace(/\/+/g, "/").replace(/\/\.\//g, "/").replace(/^\.?\//, "");
+        while (~path.indexOf("../")) {
+            path = path.replace(/[^\.\/]+\/\.\.\//g, "");
+        }
+        return path;
+    }
     function callbacks() {
         var list = [], _args = (arguments[0] || "").split(" "), fireState = 0, stopOnFalse = ~_args.indexOf("stopOnFalse"), once = ~_args.indexOf("once"), memory = ~_args.indexOf("memory") ? [] : null, fireArgs = [];
         function add(cb) {
@@ -64,9 +49,9 @@ var requirejs, require, define;
         }
         function fire() {
             if (disabled()) return this;
-            fireArgs = _.makeArray(arguments);
+            fireArgs = makeArray(arguments);
             fireState = 1;
-            _.each(list, function(index, cb) {
+            each(list, function(index, cb) {
                 if (cb.apply(null, fireArgs) === false && stopOnFalse) {
                     return false;
                 }
@@ -97,20 +82,20 @@ var requirejs, require, define;
                 return _state;
             },
             promise: function() {
-                var self = this;
+                var _this = this;
                 var pro = {
-                    state: self.state
+                    state: _this.state
                 };
-                _.each(tuples, function(i, tuple) {
-                    pro[tuple[1]] = self[tuple[1]];
+                each(tuples, function(i, tuple) {
+                    pro[tuple[1]] = _this[tuple[1]];
                 });
                 return pro;
             }
         };
-        _.each(tuples, function(i, tuple) {
+        each(tuples, function(i, tuple) {
             dfd[tuple[0]] = function() {
                 if (_state != "pending") return this;
-                tuple[2].fire.apply(tuple[2], _.makeArray(arguments));
+                tuple[2].fire.apply(tuple[2], makeArray(arguments));
                 _state = tuple[3];
                 return this;
             };
@@ -122,7 +107,7 @@ var requirejs, require, define;
         return dfd;
     }
     function all(promises) {
-        promises = _.makeArray(promises);
+        promises = makeArray(promises);
         var len = promises.length, resNum = 0, argsArr = new Array(len), dfd = deferred(), pro = dfd.promise();
         if (len === 0) {
             dfd.resolve();
@@ -130,7 +115,7 @@ var requirejs, require, define;
         }
         function addThen() {
             resNum++;
-            var args = _.makeArray(arguments);
+            var args = makeArray(arguments);
             var index = args.shift();
             if (args.length <= 1) {
                 argsArr[index] = args[0];
@@ -142,10 +127,10 @@ var requirejs, require, define;
             }
         }
         function addCatch() {
-            var args = _.makeArray(arguments);
+            var args = makeArray(arguments);
             dfd.reject.apply(dfd, args);
         }
-        _.each(promises, function(index, promise) {
+        each(promises, function(index, promise) {
             promise.then(function() {
                 args = Array.prototype.slice.apply(arguments);
                 args.unshift(index);
@@ -154,35 +139,25 @@ var requirejs, require, define;
         });
         return pro;
     }
-    var core = {
-        ver: "0.0.1",
-        defineName: "define",
-        requireName: "require",
-        coreName: "requirejs",
-        rootUrl: "",
-        dict: {}
-    };
-    function requireModule(deps, callback) {
+    function requireModule(deps, cb) {
         setTimeout(function() {
             deps = deps.map(function(url) {
-                return getModule(_.resolvePath(core.rootUrl, url));
+                return getModule(resolvePath(core.rootUrl, url));
             });
             all(deps).then(function(args) {
-                callback.apply(null, args);
+                cb.apply(null, args);
             });
         }, 0);
     }
     function defineModule() {
-        var args = _.makeArray(arguments);
-        var name = "", proArr, sender;
-        var argsLen = args.length;
-        if (argsLen == 1) {
+        var args = makeArray(arguments), name = "", proArr, sender, argsLen = args.length;
+        if (argsLen === 1) {
             proArr = [];
             sender = args[0];
-        } else if (argsLen == 2) {
+        } else if (argsLen === 2) {
             proArr = args[0];
             sender = args[1];
-        } else if (argsLen == 3) {
+        } else if (argsLen === 3) {
             name = args[0];
             proArr = args[1];
             sender = args[2];
@@ -190,18 +165,18 @@ var requirejs, require, define;
             throw Error("参数个数异常");
         }
         var dfdThen = function(_name, lastModule) {
-            _name = _.normalizePath(_name);
+            _name = resolvePath(_name);
             proArr = proArr.map(function(url) {
-                url = _.resolvePath(_name, url);
+                url = resolvePath(_name, url);
                 return getModule(url);
             });
             all(proArr).then(function(_args) {
                 _args = _args || [];
                 var result;
-                var _type = _.type(sender);
-                if (_type == "function") {
+                var _type = Object.prototype.toString.call(sender);
+                if (_type == "[object Function]") {
                     result = sender.apply(null, _args);
-                } else if (_type == "object") {
+                } else if (_type == "[object Object]") {
                     result = sender;
                 } else {
                     throw Error("参数类型错误");
@@ -214,7 +189,7 @@ var requirejs, require, define;
             lastNameDfd.then(dfdThen);
         } else {
             var lastModule = deferred();
-            var dictName = _.resolvePath(core.rootUrl, name);
+            var dictName = resolvePath(core.rootUrl, name);
             core.dict[dictName] = lastModule;
             var namedDfd = deferred().then(dfdThen);
             setTimeout(function() {
@@ -254,7 +229,7 @@ var requirejs, require, define;
     window[coreName] = core;
     window[requireName] = requireModule;
     window[defineName] = defineModule;
-    var script = [].slice.call(document.getElementsByTagName("script")).slice(-1)[0];
+    var script = Array.prototype.slice.call(document.getElementsByTagName("script")).slice(-1)[0];
     core.rootUrl = script.getAttribute("data-main");
     addScript(core.rootUrl);
 })(this);
